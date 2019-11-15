@@ -94,6 +94,15 @@ public:
 		buffer[x][y].color = c;
 		buffer[x][y].z_value = depth;
 	}
+	
+	void SetPixel(double depth)
+	{
+		for (int i = 0; i < x_res; i++) {
+			for (int j = 0; j < y_res; j++) {
+				buffer[i][j].z_value = depth;
+			}
+		}
+	}
 
 	int GetWidth()
 	{

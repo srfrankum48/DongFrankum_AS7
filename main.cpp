@@ -23,6 +23,7 @@ int window_width, window_height;    // Window dimensions
 const int INITIAL_RES = 400;
 
 FrameBuffer* fb;
+float z = 0;
 
 class point
 {
@@ -253,6 +254,20 @@ void	keyboard(unsigned char key, int x, int y)
 	case '=':
 		fb->Resize(fb->GetHeight()*2, fb->GetWidth()*2);
 		BresenhamLine(fb, fb->GetWidth()*0.1, fb->GetHeight()*0.1, fb->GetWidth()*0.9, fb->GetHeight()*0.9, Color(1,0,0));
+		break;
+	case ']': // move image plane farther to origin (zaxis)
+		z++;
+		fb->SetPixel(z);
+		break;
+	case '[': // move image plane closer to origin (zaxis)
+		z--;
+		fb->SetPixel(z);
+		break;
+	case '.':
+		break;
+	case ',':
+		break;
+	case 'r':
 		break;
     default:
 		break;

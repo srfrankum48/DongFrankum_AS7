@@ -154,6 +154,9 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="primitives.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="red_sphere_and_teapot.rtl" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

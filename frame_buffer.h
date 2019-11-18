@@ -4,6 +4,8 @@
 #include <vector>
 #include "color.h"
 
+#define M_PI 3.14
+
 using namespace std;
 
 class Pixel
@@ -94,15 +96,6 @@ public:
 		buffer[x][y].color = c;
 		buffer[x][y].z_value = depth;
 	}
-	
-	void SetPixel(double depth)
-	{
-		for (int i = 0; i < x_res; i++) {
-			for (int j = 0; j < y_res; j++) {
-				buffer[i][j].z_value = depth;
-			}
-		}
-	}
 
 	int GetWidth()
 	{
@@ -114,6 +107,56 @@ public:
 		return y_res;
 	}
 };
+
+class Vertex
+{
+public:
+	Vertex();
+	void Normalize();
+	float x, y, z, h;
+};
+
+class Vector
+{
+public:
+	float i, j, k;
+};
+
+class Face
+{
+public:
+	int v1, v2, v3;
+};
+
+class Object
+{
+public:
+	Object();
+	~Object();
+	void Load(char* file, float s, float rx, float ry, float rz,
+		float tx, float ty, float tz);
+	void Load(float Sx, float Sy, float Sz, float radius, float SAmbientR, float SAmbientG, float SAmbientB, float SDiffuseR, float SDiffuseG, float SDiffuseB,
+		float SSpecularR, float SSpecularG, float SSpecularB, float Skambient, float Skdiffuse, float Skspecular,
+		float SkspecularExp, float SIndexRefraction, float SkReflective, float SkRefractive);
+	void WorldTranslate(float tx, float ty, float tz);
+	void WorldRotate(float rx, float ry, float rz);
+	void LocalRotate(float rx, float ry, float rz);
+	void LocalScale(float s);
+	Vertex* pVertexList;
+	int VertexCount;
+	Face* pFaceList;
+	int FaceCount;
+	float ModelMatrix[16];
+};
+
+class Scene
+{
+public:
+	void Load(char* file);
+	Object* pObjectList;
+	int ObjectCount;
+};
+
 
 
 #endif

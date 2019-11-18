@@ -19,11 +19,11 @@ using namespace std;
 
 // Global variables
 int window_width, window_height;    // Window dimensions
+Scene* pDisplayScene;
 
 const int INITIAL_RES = 400;
 
 FrameBuffer* fb;
-float z = 0;
 
 class point
 {
@@ -40,6 +40,340 @@ public:
 		x = xa; y = ya; z = za; w = wa;
 	}
 };
+
+Vertex::Vertex()
+{
+	x = y = z = 0;
+	h = 1;
+}
+
+void Vertex::Normalize()
+{
+	x = x / h;
+	y = y / h;
+	z = z / h;
+	h = 1;
+}
+
+Object::Object()
+{
+	// Load the identity for the initial modeling matrix
+	ModelMatrix[0] = ModelMatrix[5] = ModelMatrix[10] = ModelMatrix[15] = 1;
+	ModelMatrix[1] = ModelMatrix[2] = ModelMatrix[3] = ModelMatrix[4] =
+		ModelMatrix[6] = ModelMatrix[7] = ModelMatrix[8] = ModelMatrix[9] =
+		ModelMatrix[11] = ModelMatrix[12] = ModelMatrix[13] = ModelMatrix[14] = 0;
+}
+
+Object::~Object()
+{
+	delete[] pVertexList;
+	delete[] pFaceList;
+}
+
+void Object::Load(char* file, float s, float rx, float ry, float rz,
+	float tx, float ty, float tz)
+{
+	FILE* pObjectFile = fopen(file, "r");
+	if (!pObjectFile)
+		cout << "Failed to load " << file << "." << endl;
+	else
+		cout << "Successfully loaded " << file << "." << endl;
+
+	char DataType;
+	float a, b, c;
+
+	// Scan the file and count the faces and vertices
+	VertexCount = FaceCount = 0;
+	while (!feof(pObjectFile))
+	{
+		fscanf(pObjectFile, "%c %f %f %f\n", &DataType, &a, &b, &c);
+		if (DataType == 'v')
+			VertexCount++;
+		else if (DataType == 'f')
+			FaceCount++;
+	}
+	pVertexList = new Vertex[VertexCount];
+	pFaceList = new Face[FaceCount];
+
+	fseek(pObjectFile, 0L, SEEK_SET);
+
+	cout << "Number of vertices: " << VertexCount << endl;
+	cout << "Number of faces: " << FaceCount << endl;
+
+	// Load and create the faces and vertices
+	int CurrentVertex = 0, CurrentFace = 0;
+	while (!feof(pObjectFile))
+	{
+		fscanf(pObjectFile, "%c %f %f %f\n", &DataType, &a, &b, &c);
+		if (DataType == 'v')
+		{
+			pVertexList[CurrentVertex].x = a;
+			pVertexList[CurrentVertex].y = b;
+			pVertexList[CurrentVertex].z = c;
+			CurrentVertex++;
+		}
+		else if (DataType == 'f')
+		{
+			// Convert to a zero-based index for convenience
+			pFaceList[CurrentFace].v1 = (int)a - 1;
+			pFaceList[CurrentFace].v2 = (int)b - 1;
+			pFaceList[CurrentFace].v3 = (int)c - 1;
+			CurrentFace++;
+		}
+	}
+
+	// Apply the initial transformations in order
+	LocalScale(s);
+	WorldRotate((float)(M_PI*rx / 180.0), (float)(M_PI*ry / 180.0), (float)(M_PI*rz / 180.0));
+	WorldTranslate(tx, ty, tz);
+}
+
+void Object::Load(float Sx, float Sy, float Sz, float radius, float SAmbientR, float SAmbientG, float SAmbientB,
+	float SDiffuseR, float SDiffuseG, float SDiffuseB, float SSpecularR, float SSpecularG, float SSpecularB,
+	float Skambient, float Skdiffuse, float floatSkspecular, float SkspecularExp, float SIndexRefraction,
+	float SkReflective, float SkRefractive)
+{
+	char *file = "Sphere.obj";
+	FILE* pObjectFile = fopen(file, "r");
+	if (!pObjectFile)
+		cout << "Failed to load " << file << "." << endl;
+	else
+		cout << "Successfully loaded " << file << "." << endl;
+
+	char DataType;
+	float a, b, c;
+
+	// Scan the file and count the faces and vertices
+	VertexCount = FaceCount = 0;
+	while (!feof(pObjectFile))
+	{
+		fscanf(pObjectFile, "%c %f %f %f\n", &DataType, &a, &b, &c);
+		if (DataType == 'v')
+			VertexCount++;
+		else if (DataType == 'f')
+			FaceCount++;
+	}
+	pVertexList = new Vertex[VertexCount];
+	pFaceList = new Face[FaceCount];
+
+	fseek(pObjectFile, 0L, SEEK_SET);
+
+	cout << "Number of vertices: " << VertexCount << endl;
+	cout << "Number of faces: " << FaceCount << endl;
+
+	// Load and create the faces and vertices
+	int CurrentVertex = 0, CurrentFace = 0;
+	while (!feof(pObjectFile))
+	{
+		fscanf(pObjectFile, "%c %f %f %f\n", &DataType, &a, &b, &c);
+		if (DataType == 'v')
+		{
+			pVertexList[CurrentVertex].x = a;
+			pVertexList[CurrentVertex].y = b;
+			pVertexList[CurrentVertex].z = c;
+			CurrentVertex++;
+		}
+		else if (DataType == 'f')
+		{
+			// Convert to a zero-based index for convenience
+			pFaceList[CurrentFace].v1 = (int)a - 1;
+			pFaceList[CurrentFace].v2 = (int)b - 1;
+			pFaceList[CurrentFace].v3 = (int)c - 1;
+			CurrentFace++;
+		}
+	}
+}
+
+// Do world-based translation
+void Object::WorldTranslate(float tx, float ty, float tz)
+{
+	ModelMatrix[12] += tx;
+	ModelMatrix[13] += ty;
+	ModelMatrix[14] += tz;
+}
+
+// Perform world-based rotations in x,y,z order (intended for one-at-a-time use)
+void Object::WorldRotate(float rx, float ry, float rz)
+{
+	float temp[16];
+
+	if (rx != 0)
+	{
+		float cosx = cos(rx), sinx = sin(rx);
+		for (int i = 0; i < 16; i++)
+			temp[i] = ModelMatrix[i];
+		ModelMatrix[1] = temp[1] * cosx - temp[2] * sinx;
+		ModelMatrix[2] = temp[2] * cosx + temp[1] * sinx;
+		ModelMatrix[5] = temp[5] * cosx - temp[6] * sinx;
+		ModelMatrix[6] = temp[6] * cosx + temp[5] * sinx;
+		ModelMatrix[9] = temp[9] * cosx - temp[10] * sinx;
+		ModelMatrix[10] = temp[10] * cosx + temp[9] * sinx;
+		ModelMatrix[13] = temp[13] * cosx - temp[14] * sinx;
+		ModelMatrix[14] = temp[14] * cosx + temp[13] * sinx;
+	}
+
+	if (ry != 0)
+	{
+		float cosy = cos(ry), siny = sin(ry);
+		for (int i = 0; i < 16; i++)
+			temp[i] = ModelMatrix[i];
+		ModelMatrix[0] = temp[0] * cosy + temp[2] * siny;
+		ModelMatrix[2] = temp[2] * cosy - temp[0] * siny;
+		ModelMatrix[4] = temp[4] * cosy + temp[6] * siny;
+		ModelMatrix[6] = temp[6] * cosy - temp[4] * siny;
+		ModelMatrix[8] = temp[8] * cosy + temp[10] * siny;
+		ModelMatrix[10] = temp[10] * cosy - temp[8] * siny;
+		ModelMatrix[12] = temp[12] * cosy + temp[14] * siny;
+		ModelMatrix[14] = temp[14] * cosy - temp[12] * siny;
+	}
+
+	if (rz != 0)
+	{
+		float cosz = cos(rz), sinz = sin(rz);
+		for (int i = 0; i < 16; i++)
+			temp[i] = ModelMatrix[i];
+		ModelMatrix[0] = temp[0] * cosz - temp[1] * sinz;
+		ModelMatrix[1] = temp[1] * cosz + temp[0] * sinz;
+		ModelMatrix[4] = temp[4] * cosz - temp[5] * sinz;
+		ModelMatrix[5] = temp[5] * cosz + temp[4] * sinz;
+		ModelMatrix[8] = temp[8] * cosz - temp[9] * sinz;
+		ModelMatrix[9] = temp[9] * cosz + temp[8] * sinz;
+		ModelMatrix[12] = temp[12] * cosz - temp[13] * sinz;
+		ModelMatrix[13] = temp[13] * cosz + temp[12] * sinz;
+	}
+}
+
+// Perform locally-based rotations in x,y,z order (intended for one-at-a-time use)
+void Object::LocalRotate(float rx, float ry, float rz)
+{
+	float temp[16];
+
+	if (rx != 0)
+	{
+		float cosx = cos(rx), sinx = sin(rx);
+		for (int i = 0; i < 16; i++)
+			temp[i] = ModelMatrix[i];
+		ModelMatrix[4] = temp[4] * cosx + temp[8] * sinx;
+		ModelMatrix[5] = temp[5] * cosx + temp[9] * sinx;
+		ModelMatrix[6] = temp[6] * cosx + temp[10] * sinx;
+		ModelMatrix[7] = temp[7] * cosx + temp[11] * sinx;
+		ModelMatrix[8] = temp[8] * cosx - temp[4] * sinx;
+		ModelMatrix[9] = temp[9] * cosx - temp[5] * sinx;
+		ModelMatrix[10] = temp[10] * cosx - temp[6] * sinx;
+		ModelMatrix[11] = temp[11] * cosx - temp[7] * sinx;
+	}
+
+	if (ry != 0)
+	{
+		float cosy = cos(ry), siny = sin(ry);
+		for (int i = 0; i < 16; i++)
+			temp[i] = ModelMatrix[i];
+		ModelMatrix[0] = temp[0] * cosy - temp[8] * siny;
+		ModelMatrix[1] = temp[1] * cosy - temp[9] * siny;
+		ModelMatrix[2] = temp[2] * cosy - temp[10] * siny;
+		ModelMatrix[3] = temp[3] * cosy - temp[11] * siny;
+		ModelMatrix[8] = temp[8] * cosy + temp[0] * siny;
+		ModelMatrix[9] = temp[9] * cosy + temp[1] * siny;
+		ModelMatrix[10] = temp[10] * cosy + temp[2] * siny;
+		ModelMatrix[11] = temp[11] * cosy + temp[3] * siny;
+	}
+
+	if (rz != 0)
+	{
+		float cosz = cos(rz), sinz = sin(rz);
+		for (int i = 0; i < 16; i++)
+			temp[i] = ModelMatrix[i];
+		ModelMatrix[0] = temp[0] * cosz + temp[4] * sinz;
+		ModelMatrix[1] = temp[1] * cosz + temp[5] * sinz;
+		ModelMatrix[2] = temp[2] * cosz + temp[6] * sinz;
+		ModelMatrix[3] = temp[3] * cosz + temp[7] * sinz;
+		ModelMatrix[4] = temp[4] * cosz - temp[0] * sinz;
+		ModelMatrix[5] = temp[5] * cosz - temp[1] * sinz;
+		ModelMatrix[6] = temp[6] * cosz - temp[2] * sinz;
+		ModelMatrix[7] = temp[7] * cosz - temp[3] * sinz;
+	}
+}
+
+// Do locally-based uniform scaling
+void Object::LocalScale(float s)
+{
+	for (int i = 0; i <= 11; i++)
+		ModelMatrix[i] = s * ModelMatrix[i];
+}
+
+void Scene::Load(char* file)
+{
+	FILE* pSceneFile = fopen(file, "r");
+	if (!pSceneFile)
+		cout << "Failed to load " << file << "." << endl;
+	else
+		cout << "Successfully loaded " << file << "." << endl;
+
+	char MeshFile[255];
+	float NumLights, NumSpheres, NumTriangleMeshes;
+	float LightType, Lx, Ly, Lz, Lr, Lg, Lb;
+	float Sx, Sy, Sz, radius, SAmbientR, SAmbientG, SAmbientB,
+		SDiffuseR, SDiffuseG, SDiffuseB, SSpecularR, SSpecularG, SSpecularB,
+		Skambient, Skdiffuse, Skspecular, SkspecularExp, SIndexRefraction,
+		SkReflective, SkRefractive;
+	float Scaling, RotationX, RotationY, RotationZ,
+		TranslationX, TranslationY, TranslationZ;
+
+	// Step through the file and count the objects
+	ObjectCount = 0;
+	while (!feof(pSceneFile))
+	{
+		char letter;
+		fscanf(pSceneFile, "%c", &letter);
+		if (letter == 'L') {
+			fscanf(pSceneFile, "%f %f %f %f %f %f %f\n", &LightType, &Lx, &Ly, &Lz,
+				&Lr, &Lg, &Lb);
+		}
+		else if (letter == 'S') {
+			fscanf(pSceneFile, "%f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f\n",
+				&Sx, &Sy, &Sz, &radius, &SAmbientR, &SAmbientG, &SAmbientB, &SDiffuseR, &SDiffuseG, &SDiffuseB,
+				&SSpecularR, &SSpecularG, &SSpecularB, &Skambient, &Skdiffuse, &Skspecular,
+				&SkspecularExp, &SIndexRefraction, &SkReflective, &SkRefractive);
+			ObjectCount++;
+		}
+		else if (letter == 'M') {
+			fscanf(pSceneFile, "%s %f %f %f %f %f %f %f\n", MeshFile, &Scaling,
+				&RotationX, &RotationY, &RotationZ, &TranslationX, &TranslationY, &TranslationZ);
+			ObjectCount++;
+		}
+		else {
+			fscanf(pSceneFile, "%f %f %f\n", &NumLights, &NumSpheres, &NumTriangleMeshes);
+		}
+	}
+	pObjectList = new Object[ObjectCount];
+
+	fseek(pSceneFile, 0L, SEEK_SET);
+
+	// Step through the file and create/load the objects
+	for (int i = 0; i < ObjectCount; i++)
+	{
+		char letter= ' ';
+		fscanf(pSceneFile, "%c", &letter);
+		if (letter == 'S') {
+			fscanf(pSceneFile, "%f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f\n",
+				&Sx, &Sy, &Sz, &radius, &SAmbientR, &SAmbientG, &SAmbientB, &SDiffuseR, &SDiffuseG, &SDiffuseB,
+				&SSpecularR, &SSpecularG, &SSpecularB, &Skambient, &Skdiffuse, &Skspecular,
+				&SkspecularExp, &SIndexRefraction, &SkReflective, &SkRefractive);
+			pObjectList[i].Load(Sx, Sy, Sz, radius, SAmbientR, SAmbientG, SAmbientB, SDiffuseR, SDiffuseG, SDiffuseB,
+				SSpecularR, SSpecularG, SSpecularB, Skambient, Skdiffuse, Skspecular,
+				SkspecularExp, SIndexRefraction, SkReflective, SkRefractive);
+		}
+		else if (letter == 'M') {
+			fscanf(pSceneFile, "%s %f %f %f %f %f %f %f\n", MeshFile, &Scaling,
+				&RotationX, &RotationY, &RotationZ, &TranslationX, &TranslationY, &TranslationZ);
+			pObjectList[i].Load(MeshFile, Scaling, RotationX, RotationY, RotationZ,
+				TranslationX, TranslationY, TranslationZ);
+		}
+	}
+
+	cout << "Number of Objects Loaded: " << ObjectCount << endl;
+}
+
 
 typedef struct _faceStruct {
   int v1,v2,v3;
@@ -256,18 +590,25 @@ void	keyboard(unsigned char key, int x, int y)
 		BresenhamLine(fb, fb->GetWidth()*0.1, fb->GetHeight()*0.1, fb->GetWidth()*0.9, fb->GetHeight()*0.9, Color(1,0,0));
 		break;
 	case ']': // move image plane farther to origin (zaxis)
-		z++;
-		fb->SetPixel(z);
+		for (int i = 0; i < fb->x_res; i++) {
+			for (int j = 0; j < fb->y_res; j++) {
+				fb->SetPixel(i, j, fb->GetPixel(i, j).color, fb->GetPixel(i, j).z_value + 1);
+			}
+		}
 		break;
 	case '[': // move image plane closer to origin (zaxis)
-		z--;
-		fb->SetPixel(z);
+		for (int i = 0; i < fb->GetWidth(); i++) {
+			for (int j = 0; j < fb->GetHeight(); j++) {
+				fb->SetPixel(i, j, fb->GetPixel(i, j).color, fb->GetPixel(i, j).z_value - 1);
+			}
+		}
 		break;
 	case '.':
 		break;
 	case ',':
 		break;
 	case 'r':
+		glutPostRedisplay();
 		break;
     default:
 		break;
@@ -285,9 +626,9 @@ int main(int argc, char* argv[])
 
 	BresenhamLine(fb, fb->GetWidth()*0.1, fb->GetHeight()*0.1, fb->GetWidth()*0.9, fb->GetHeight()*0.9, Color(1,0,0));
 
-	
-
     // Initialize GLUT
+	pDisplayScene = new Scene;
+	pDisplayScene->Load("red_sphere_and_teapot.rtl");
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
     glutCreateWindow("Raytracer");

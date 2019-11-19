@@ -585,15 +585,15 @@ void	keyboard(unsigned char key, int x, int y)
 	case '-':
 		new_x = fb->GetWidth() / 2;
 		new_y = fb->GetHeight() / 2;
-		fb->Resize(new_y, new_x);
-		resize(new_y, new_x);
+		fb->Resize(new_x, new_y);
+		resize(new_x, new_y);
 		BresenhamLine(fb, fb->GetWidth()*0.1, fb->GetHeight()*0.1, fb->GetWidth()*0.9, fb->GetHeight()*0.9, Color(1,0,0));
 		break;
 	case '=':
 		new_x = fb->GetWidth() * 2;
 		new_y = fb->GetHeight() * 2;
-		fb->Resize(new_y, new_x);
-		resize(new_y, new_x);
+		fb->Resize(new_x, new_y);
+		resize(new_x, new_y);
 		BresenhamLine(fb, fb->GetWidth()*0.1, fb->GetHeight()*0.1, fb->GetWidth()*0.9, fb->GetHeight()*0.9, Color(1,0,0));
 		break;
 	case ']': // move image plane farther to origin (zaxis)
@@ -612,9 +612,19 @@ void	keyboard(unsigned char key, int x, int y)
 		}
 		display();
 		break;
-	case '.':
+	case '.':	// increase x-y dimensions of image plane
+		new_x = fb->GetWidth() + 10;
+		new_y = fb->GetHeight() + 10;
+		fb->Resize(new_x, new_y);
+		resize(new_x, new_y);
+		BresenhamLine(fb, fb->GetWidth() * 0.1, fb->GetHeight() * 0.1, fb->GetWidth() * 0.9, fb->GetHeight() * 0.9, Color(1, 0, 0));
 		break;
-	case ',':
+	case ',':	// decrease x-y dimensions of image plane
+		new_x = fb->GetWidth() - 10;
+		new_y = fb->GetHeight() - 10;
+		fb->Resize(new_x, new_y);
+		resize(new_x, new_y);
+		BresenhamLine(fb, fb->GetWidth() * 0.1, fb->GetHeight() * 0.1, fb->GetWidth() * 0.9, fb->GetHeight() * 0.9, Color(1, 0, 0));
 		break;
 	case 'r':
 		glutPostRedisplay();

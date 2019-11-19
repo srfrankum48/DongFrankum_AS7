@@ -505,6 +505,7 @@ void meshReader (char *filename,int sign)
 
 void setParameters(GLuint program) {
 	//The parameters in quotes are the names of the corresponding variables
+	/*
 	ambient_loc = glGetUniformLocationARB(program, "AmbientContribution");
 	glUniform3fvARB(ambient_loc, 1, ambient_cont);
 
@@ -520,6 +521,7 @@ void setParameters(GLuint program) {
 	//Access attributes in vertex shader
 	tangent_loc = glGetAttribLocationARB(program, "tang");
 	glVertexAttrib1fARB(tangent_loc, tangent);
+	*/
 }
 
 
@@ -750,7 +752,7 @@ void	keyboard(unsigned char key, int x, int y)
 		BresenhamLine(fb, fb->GetWidth() * 0.1, fb->GetHeight() * 0.1, fb->GetWidth() * 0.9, fb->GetHeight() * 0.9, Color(1, 0, 0));
 		break;
 	case 'r':
-		setParams();
+		//setParams();
 		setShaders("PhongShader.frag", "PhongShader.vert");
 		glutPostRedisplay();
 		break;

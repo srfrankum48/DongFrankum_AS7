@@ -148,9 +148,14 @@
   <ItemGroup>
     <ClInclude Include="color.h" />
     <ClInclude Include="frame_buffer.h" />
+    <ClInclude Include="gl.h" />
+    <ClInclude Include="glext.h" />
+    <ClInclude Include="glprocs.h" />
+    <ClInclude Include="glxext.h" />
     <ClInclude Include="primitives.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="glprocs.c" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="primitives.cpp" />
   </ItemGroup>

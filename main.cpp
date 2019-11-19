@@ -7,6 +7,7 @@
 #include "primitives.h"
 #include "color.h"
 #include <vector>
+#include "glprocs.h"
 
 #include <iostream>
 #include <fstream>
@@ -18,8 +19,12 @@ using namespace std;
 
 
 // Global variables
+char *shaderFileRead(char *fn);
 int window_width, window_height;    // Window dimensions
 Scene* pDisplayScene;
+Camera* pDisplayCamera;
+GLuint vertex_shader, fragment_shader, p;
+
 
 const int INITIAL_RES = 400;
 
@@ -497,6 +502,27 @@ void meshReader (char *filename,int sign)
 
 }
 
+
+void setParameters(GLuint program) {
+	//The parameters in quotes are the names of the corresponding variables
+	ambient_loc = glGetUniformLocationARB(program, "AmbientContribution");
+	glUniform3fvARB(ambient_loc, 1, ambient_cont);
+
+	diffuse_loc = glGetUniformLocationARB(program, "DiffuseContribution");
+	glUniform3fvARB(diffuse_loc, 1, diffuse_cont);
+
+	specular_loc = glGetUniformLocationARB(program, "SpecularContribution");
+	glUniform3fvARB(specular_loc, 1, specular_cont);
+
+	exponent_loc = glGetUniformLocationARB(program, "exponent");
+	glUniform1fARB(exponent_loc, exponent);
+
+	//Access attributes in vertex shader
+	tangent_loc = glGetAttribLocationARB(program, "tang");
+	glVertexAttrib1fARB(tangent_loc, tangent);
+}
+
+
 void drawRect(double x, double y, double w, double h)
 {
 	glVertex2f(x,y);
@@ -505,6 +531,75 @@ void drawRect(double x, double y, double w, double h)
 	glVertex2f(x, y+h);
 }
 
+// Transform a point with an arbitrary matrix
+Vertex Transform(float* matrix, Vertex& point)
+{
+	Vertex temp;
+	temp.x = matrix[0] * point.x + matrix[4] * point.y + matrix[8] * point.z + matrix[12] * point.h;
+	temp.y = matrix[1] * point.x + matrix[5] * point.y + matrix[9] * point.z + matrix[13] * point.h;
+	temp.z = matrix[2] * point.x + matrix[6] * point.y + matrix[10] * point.z + matrix[14] * point.h;
+	temp.h = matrix[3] * point.x + matrix[7] * point.y + matrix[11] * point.z + matrix[15] * point.h;
+	return temp;
+}
+
+void setShaders(char v[], char f[]) {
+
+	char *vs = NULL, *fs = NULL;
+
+	//create the empty shader objects and get their handles
+	vertex_shader = glCreateShaderObjectARB(GL_VERTEX_SHADER_ARB);
+	fragment_shader = glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);
+
+
+	//read the shader files and store the strings in corresponding char. arrays.
+	vs = shaderFileRead(v);
+	fs = shaderFileRead(f);
+
+	const char * vv = vs;
+	const char * ff = fs;
+
+	//set the shader's source code by using the strings read from the shader files.
+	glShaderSourceARB(vertex_shader, 1, &vv, NULL);
+	glShaderSourceARB(fragment_shader, 1, &ff, NULL);
+
+	free(vs); free(fs);
+
+	//Compile the shader objects
+	glCompileShaderARB(vertex_shader);
+	glCompileShaderARB(fragment_shader);
+
+
+	//create an empty program object to attach the shader objects
+	p = glCreateProgramObjectARB();
+
+	//attach the shader objects to the program object
+	glAttachObjectARB(p, vertex_shader);
+	glAttachObjectARB(p, fragment_shader);
+
+	/*
+	**************
+	Programming Tip:
+	***************
+	Delete the attached shader objects once they are attached.
+	They will be flagged for removal and will be freed when they are no more used.
+	*/
+	glDeleteObjectARB(vertex_shader);
+	glDeleteObjectARB(fragment_shader);
+
+	//Link the created program.
+	/*
+	**************
+	Programming Tip:
+	***************
+	You can trace the status of link operation by calling
+	"glGetObjectParameterARB(p,GL_OBJECT_LINK_STATUS_ARB)"
+	*/
+	glLinkProgramARB(p);
+
+	//Start to use the program object, which is the part of the current rendering state
+	glUseProgramObjectARB(p);
+
+}
 
 // The display function. It is called whenever the window needs
 // redrawing (ie: overlapping window moves, resize, maximize)
@@ -534,6 +629,34 @@ void	display(void)
 			glColor3f(cl.r, cl.g, cl.b);
 
 			drawRect(w*x, h*y, w, h);
+		}
+	}
+
+	Vertex* input;
+	Vertex	temp, temp1, temp2, temp3;
+	for (int i = 0; i < pDisplayScene->ObjectCount; i++)
+	{
+		for (int j = 0; j < pDisplayScene->pObjectList[i].FaceCount; j++)
+		{
+			input = new Vertex[3];
+			input[0] = pDisplayScene->pObjectList[i].pVertexList[pDisplayScene->pObjectList[i].pFaceList[j].v1];
+			input[1] = pDisplayScene->pObjectList[i].pVertexList[pDisplayScene->pObjectList[i].pFaceList[j].v2];
+			input[2] = pDisplayScene->pObjectList[i].pVertexList[pDisplayScene->pObjectList[i].pFaceList[j].v3];
+
+
+			for (int k = 0; k < 3; k++) {
+				temp = Transform(pDisplayScene->pObjectList[i].ModelMatrix, input[k]);
+				temp2 = Transform(pDisplayCamera->ViewingMatrix, temp);
+				input[k] = Transform(pDisplayCamera->ProjectionMatrix, temp2);
+			}
+
+			glBegin(GL_POLYGON);
+			for (int k = 0; k < 3; k++)
+				glVertex2f(input[k].x / input[k].h, input[k].y / input[k].h);
+			glEnd();
+
+			delete[] input;
+			input = NULL;
 		}
 	}
 
@@ -617,6 +740,8 @@ void	keyboard(unsigned char key, int x, int y)
 	case ',':
 		break;
 	case 'r':
+		setParams();
+		setShaders("PhongShader.frag", "PhongShader.vert");
 		glutPostRedisplay();
 		break;
     default:
@@ -647,6 +772,26 @@ int main(int argc, char* argv[])
     glutMotionFunc(mouseMotion);
     glutKeyboardFunc(keyboard);
 
+	setShaders("PhongShader.frag", "PhongShader.vert");
+
+
+	glEnable(GL_LIGHTING);
+
+	// ambient light
+	glEnable(GL_LIGHT0);
+
+	GLfloat light0_pos[] = { 0.0f, 0.0f, 0.0f, 1.0f };
+	GLfloat light0_a[] = { 0.2f, 0.2f, 0.2f, 1.0f };
+	GLfloat light0_d[] = { 0.2f, 0.2f, 0.2f, 1.0f };
+	GLfloat light0_s[] = { 0.2f, 0.2f, 0.2f, 1.0f };
+
+	glLightfv(GL_LIGHT0, GL_POSITION, light0_pos);
+	glLightfv(GL_LIGHT0, GL_AMBIENT, light0_a);
+	glLightfv(GL_LIGHT0, GL_DIFFUSE, light0_d);
+	glLightfv(GL_LIGHT0, GL_SPECULAR, light0_s);
+
+	glEnable(GL_NORMALIZE);
+
     // Initialize GL
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
@@ -661,4 +806,40 @@ int main(int argc, char* argv[])
     // Switch to main loop
     glutMainLoop();
     return 0;        
+}
+
+//Read the shader files, given as parameter.
+char *shaderFileRead(char *fn) {
+
+
+	FILE *fp = fopen(fn, "r");
+	if (!fp)
+	{
+		cout << "Failed to load " << fn << endl;
+		return " ";
+	}
+	else
+	{
+		cout << "Successfully loaded " << fn << endl;
+	}
+
+	char *content = NULL;
+
+	int count = 0;
+
+	if (fp != NULL)
+	{
+		fseek(fp, 0, SEEK_END);
+		count = ftell(fp);
+		rewind(fp);
+
+		if (count > 0)
+		{
+			content = (char *)malloc(sizeof(char) * (count + 1));
+			count = fread(content, sizeof(char), count, fp);
+			content[count] = '\0';
+		}
+		fclose(fp);
+	}
+	return content;
 }

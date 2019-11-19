@@ -149,6 +149,31 @@ public:
 	float ModelMatrix[16];
 };
 
+class Camera
+{
+public:
+	Camera();
+	void Move(float tx, float ty, float tz);
+	void Pan(float y, float p);
+	void ScaleView(float s);
+	void MoveView(float d);
+	void UpdateNearPlane(float n);
+	void UpdateFarPlane(float f);
+	void EnforceVectors();
+	void Perspective();
+	void Orthographic();
+	void LookAt();
+	Vertex Position;
+	float Pitch, Yaw;
+	Vector n;
+	Vector v;
+	Vector u;
+	float FarPlane, NearPlane, ViewPlane;
+	float ViewWidth, ViewHeight;
+	float ViewingMatrix[16];
+	float ProjectionMatrix[16];
+};
+
 class Scene
 {
 public:

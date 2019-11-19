@@ -571,6 +571,7 @@ void	mouseMotion(int x, int y)
 	;
 }
 
+int new_x, new_y;
 
 // This function is called whenever there is a keyboard input
 // key is the ASCII value of the key pressed
@@ -582,11 +583,17 @@ void	keyboard(unsigned char key, int x, int y)
 		exit(1);
 		break;
 	case '-':
-		fb->Resize(fb->GetHeight()/2, fb->GetWidth()/2);
+		new_x = fb->GetWidth() / 2;
+		new_y = fb->GetHeight() / 2;
+		fb->Resize(new_y, new_x);
+		resize(new_y, new_x);
 		BresenhamLine(fb, fb->GetWidth()*0.1, fb->GetHeight()*0.1, fb->GetWidth()*0.9, fb->GetHeight()*0.9, Color(1,0,0));
 		break;
 	case '=':
-		fb->Resize(fb->GetHeight()*2, fb->GetWidth()*2);
+		new_x = fb->GetWidth() * 2;
+		new_y = fb->GetHeight() * 2;
+		fb->Resize(new_y, new_x);
+		resize(new_y, new_x);
 		BresenhamLine(fb, fb->GetWidth()*0.1, fb->GetHeight()*0.1, fb->GetWidth()*0.9, fb->GetHeight()*0.9, Color(1,0,0));
 		break;
 	case ']': // move image plane farther to origin (zaxis)
@@ -595,6 +602,7 @@ void	keyboard(unsigned char key, int x, int y)
 				fb->SetPixel(i, j, fb->GetPixel(i, j).color, fb->GetPixel(i, j).z_value + 1);
 			}
 		}
+		display();
 		break;
 	case '[': // move image plane closer to origin (zaxis)
 		for (int i = 0; i < fb->GetWidth(); i++) {
@@ -602,6 +610,7 @@ void	keyboard(unsigned char key, int x, int y)
 				fb->SetPixel(i, j, fb->GetPixel(i, j).color, fb->GetPixel(i, j).z_value - 1);
 			}
 		}
+		display();
 		break;
 	case '.':
 		break;

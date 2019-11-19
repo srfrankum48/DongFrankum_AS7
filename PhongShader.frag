@@ -1,4 +1,3 @@
-uniform sampler2D baseMap;
 uniform float n_specular;
 uniform float Ks;
 uniform float Ka;
@@ -7,7 +6,6 @@ uniform vec4 diffuse;
 uniform vec4 specular;
 uniform vec4 ambient;
 
-varying vec2  vTexCoord;
 varying vec3  vNormal;
 varying vec3  vLightVec;
 varying vec3  vViewVec;
@@ -84,7 +82,7 @@ void main(void)
    // Compute specular term:
    vec4 SpecularColor = specular * Ks * pow( max( 0.0, dot(vReflect, vViewVec)), n_specular );
    
-   vec4 FinalColor = (AmbientColor + DiffuseColor) * texture2D( baseMap, vTexCoord) + SpecularColor;
+   vec4 FinalColor = (AmbientColor + DiffuseColor) + SpecularColor;
    
    gl_FragColor = FinalColor;
 }

@@ -25,6 +25,13 @@ Scene* pDisplayScene;
 Camera* pDisplayCamera;
 GLuint vertex_shader, fragment_shader, p;
 
+int ambient_loc, diffuse_loc, specular_loc;
+int exponent_loc;
+GLfloat ambient_cont[] = { 0.3,0.3,0.3 };
+GLfloat diffuse_cont[] = { 0.70,0.27,0.08 };
+GLfloat specular_cont[] = { 0.25,0.13,0.08 };
+GLfloat exponent = 12.8;
+
 
 const int INITIAL_RES = 400;
 
@@ -502,9 +509,11 @@ void meshReader (char *filename,int sign)
 
 }
 
-
 void setParameters(GLuint program) {
 	//The parameters in quotes are the names of the corresponding variables
+	ambient_loc = glGetUniformLocationARB(program, "AmbientContribution");
+	glUniform3fvARB(ambient_loc, 1, ambient_cont);
+
 	ambient_loc = glGetUniformLocationARB(program, "AmbientContribution");
 	glUniform3fvARB(ambient_loc, 1, ambient_cont);
 
@@ -516,12 +525,7 @@ void setParameters(GLuint program) {
 
 	exponent_loc = glGetUniformLocationARB(program, "exponent");
 	glUniform1fARB(exponent_loc, exponent);
-
-	//Access attributes in vertex shader
-	tangent_loc = glGetAttribLocationARB(program, "tang");
-	glVertexAttrib1fARB(tangent_loc, tangent);
 }
-
 
 void drawRect(double x, double y, double w, double h)
 {
@@ -740,8 +744,8 @@ void	keyboard(unsigned char key, int x, int y)
 	case ',':
 		break;
 	case 'r':
-		setParams();
 		setShaders("PhongShader.frag", "PhongShader.vert");
+		setParameters(vertex_shader);
 		glutPostRedisplay();
 		break;
     default:
@@ -775,22 +779,6 @@ int main(int argc, char* argv[])
 	setShaders("PhongShader.frag", "PhongShader.vert");
 
 
-	glEnable(GL_LIGHTING);
-
-	// ambient light
-	glEnable(GL_LIGHT0);
-
-	GLfloat light0_pos[] = { 0.0f, 0.0f, 0.0f, 1.0f };
-	GLfloat light0_a[] = { 0.2f, 0.2f, 0.2f, 1.0f };
-	GLfloat light0_d[] = { 0.2f, 0.2f, 0.2f, 1.0f };
-	GLfloat light0_s[] = { 0.2f, 0.2f, 0.2f, 1.0f };
-
-	glLightfv(GL_LIGHT0, GL_POSITION, light0_pos);
-	glLightfv(GL_LIGHT0, GL_AMBIENT, light0_a);
-	glLightfv(GL_LIGHT0, GL_DIFFUSE, light0_d);
-	glLightfv(GL_LIGHT0, GL_SPECULAR, light0_s);
-
-	glEnable(GL_NORMALIZE);
 
     // Initialize GL
     glMatrixMode(GL_PROJECTION);

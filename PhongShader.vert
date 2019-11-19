@@ -1,6 +1,5 @@
 uniform vec4 lightDir;
 
-varying vec2  vTexCoord;
 varying vec3  vNormal;
 varying vec3  vLightVec;
 varying vec3  vViewVec;
